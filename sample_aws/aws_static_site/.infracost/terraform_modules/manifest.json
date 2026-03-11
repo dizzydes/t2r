@@ -1,0 +1,1 @@
+{"Path":"/Users/des/Downloads/tf_rw/sample_aws/aws_static_site","Version":"2.0","Modules":[{"Key":"aws_reverse_proxy","Source":"git::ssh://git@github.com/futurice/terraform-utils.git//aws_reverse_proxy?ref=v11.0","Dir":".infracost/terraform_modules/d121094dd5860cff150ca4f3a1188500/aws_reverse_proxy","DownloadURL":""}]}

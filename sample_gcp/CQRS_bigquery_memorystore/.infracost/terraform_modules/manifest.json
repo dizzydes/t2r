@@ -1,0 +1,1 @@
+{"Path":"/Users/des/Downloads/tf_rw/sample_gcp/CQRS_bigquery_memorystore","Version":"2.0","Modules":[{"Key":"version","Source":"github.com/claranet/terraform-path-hash?ref=v0.1.0","Dir":".infracost/terraform_modules/ed186c3d2205ca32e539752e8e956136","DownloadURL":""}]}

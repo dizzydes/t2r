@@ -1,0 +1,1 @@
+{"Path":"/Users/des/Downloads/tf_rw/sample_gcp/camunda","Version":"2.0","Modules":[{"Key":"docker-mirror-camunda-bpm-platform","Source":"github.com/neomantra/terraform-docker-mirror","Dir":".infracost/terraform_modules/ac7ce5b9c133fd9b7ac78a028dc00ecd","DownloadURL":""}]}
