@@ -1,4 +1,4 @@
-# Terraform to Railway Migration Tool 🚀
+# Terraform to Railway  - Migration Tool 🚀
 
 An intelligent migration tool that analyzes your Terraform infrastructure and generates Railway configurations with detailed cost comparisons and migration guidance.
 
@@ -11,7 +11,7 @@ This tool helps you migrate from traditional IaaS (AWS, GCP, Azure) to [Railway]
 - Generating ready-to-use Railway configuration files
 - Providing detailed cost comparison and migration reports
 
-## Features To Add Next
+## 🚧 Features To Add Next
 
 - Support for monorepo deploys (separate `railway.json` files for each subfolder)
 - Better indexing and use of Railway templates for out the box services
