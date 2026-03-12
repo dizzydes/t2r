@@ -1,0 +1,49 @@
+{
+  "functions": [
+    {
+      "name": "local-zipfile-lambda",
+      "description": "Migrated from local_zipfile Lambda function",
+      "code_template": "// TypeScript Bun code - exact code depends on original Lambda\nexport default {\n  async fetch(req: Request) {\n    return new Response('Implement Lambda logic here');\n  }\n}",
+      "environmentVariables": {},
+      "estimatedSize_KB": 0,
+      "notes": "Original Lambda code needs to be converted to TypeScript/Bun"
+    },
+    {
+      "name": "s3-zipfile-lambda",
+      "description": "Migrated from s3_zipfile Lambda function",
+      "code_template": "// TypeScript Bun code - exact code depends on original Lambda\nexport default {\n  async fetch(req: Request) {\n    return new Response('Implement Lambda logic here');\n  }\n}",
+      "environmentVariables": {},
+      "estimatedSize_KB": 0,
+      "notes": "Original Lambda code needs to be converted to TypeScript/Bun"
+    }
+  ],
+  "services": [],
+  "databases": [],
+  "volumes": [],
+  "buckets": [],
+  "migration_notes": {
+    "easy_wins": [
+      "API Gateway functionality built into Railway Functions - no separate config needed",
+      "Custom domains supported natively by Railway",
+      "IAM/permissions handled automatically by Railway",
+      "SSL/TLS certificates auto-provisioned by Railway"
+    ],
+    "limitations": [
+      "No direct Route53 equivalent - DNS must be configured manually",
+      "Less granular API Gateway features compared to AWS",
+      "Cannot import existing ACM certificates"
+    ],
+    "manual_steps": [
+      "Convert Lambda code to TypeScript/Bun format",
+      "Configure custom domain in Railway UI",
+      "Update DNS records to point to Railway-provided domain",
+      "Migrate any environment variables from Lambda"
+    ],
+    "lambda_analysis": {
+      "can_use_functions": true,
+      "reason": "Both Lambdas appear to be HTTP-triggered functions that can be migrated to Railway Functions. Size needs to be verified but assuming < 96KB based on typical API handlers.",
+      "code_size_estimate_kb": 0
+    }
+  },
+  "cli_commands": []
+}

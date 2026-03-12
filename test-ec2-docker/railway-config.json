@@ -1,0 +1,60 @@
+{
+  "services": [
+    {
+      "name": "ec2-migration",
+      "type": "web",
+      "source": ".",
+      "builder": "DOCKERFILE",
+      "startCommand": "npm start",
+      "environmentVariables": {
+        "PORT": "8080"
+      },
+      "volumes": [
+        {
+          "mountPath": "/data",
+          "name": "ec2-volume",
+          "size_gb": 20
+        }
+      ],
+      "healthcheckPath": "/health",
+      "estimatedRAM_GB": 1.0,
+      "estimatedCPU": 1.0
+    }
+  ],
+  "volumes": [
+    {
+      "name": "ec2-volume",
+      "mount_path": "/data",
+      "size_gb": 20
+    }
+  ],
+  "migration_notes": {
+    "easy_wins": [
+      "No need to manage security groups - Railway handles networking",
+      "Built-in HTTPS termination",
+      "Simplified volume management",
+      "No need for key pairs - Railway handles deployment security",
+      "Auto-scaling handled by Railway"
+    ],
+    "limitations": [
+      "Cannot specify exact availability zones",
+      "No direct VPC equivalent (Railway provides private networking)",
+      "Custom DNS rules need to be handled differently",
+      "No SSH access (use Railway CLI for debugging)"
+    ],
+    "manual_steps": [
+      "Create Dockerfile for the application if not exists",
+      "Configure volume mount via Railway JSON patch",
+      "Update application code to use Railway environment variables",
+      "Set up health check endpoint if not exists"
+    ],
+    "lambda_analysis": {
+      "can_use_functions": false,
+      "reason": "This is an EC2 migration, requires full VM/container capabilities",
+      "code_size_estimate_kb": 0
+    }
+  },
+  "functions": [],
+  "databases": [],
+  "cli_commands": []
+}

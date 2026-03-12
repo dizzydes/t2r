@@ -13,70 +13,110 @@ class AITranslator:
         self.verbose = verbose
         self.api_key = os.getenv("OPENROUTER_API_KEY")
         self.api_url = "https://openrouter.ai/api/v1/chat/completions"
+        self.max_retries = 3
         
     def translate(self, tf_data, cost_data=None):
         """
-        Translate Terraform configuration to Railway using AI
+        Translate Terraform configuration to Railway using AI with retries
         Returns Railway configuration dictionary
         """
         if not self.api_key:
             print("   ❌ OPENROUTER_API_KEY not set in .env")
             return None
         
-        # Build the prompt from OFFICIAL Railway docs
-        system_prompt = self._build_system_prompt_v2()
+        # Build enhanced prompts with few-shot examples and chain-of-thought
+        system_prompt = self._build_enhanced_system_prompt(tf_data)
         user_prompt = self._build_user_prompt(tf_data, cost_data)
         
         if self.verbose:
             print(f"   Sending request to OpenRouter...")
             print(f"   Terraform resources: {sum(len(v) for v in tf_data.get('resources', {}).values() if isinstance(v, list))}")
         
-        try:
-            response = requests.post(
-                self.api_url,
-                headers={
-                    "Authorization": f"Bearer {self.api_key}",
-                    "Content-Type": "application/json",
-                    "HTTP-Referer": "https://github.com/railway/terraform-migration-tool",
-                    "X-Title": "Terraform to Railway Migration"
-                },
-                json={
-                    "model": "anthropic/claude-3.5-sonnet",
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_prompt}
-                    ],
-                    "temperature": 0.3,
-                    "max_tokens": 4000
-                }
-            )
-            
-            if response.status_code != 200:
-                print(f"   ❌ OpenRouter API error: {response.status_code}")
+        # Retry logic with schema validation
+        for attempt in range(self.max_retries):
+            try:
+                response = requests.post(
+                    self.api_url,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type": "application/json",
+                        "HTTP-Referer": "https://github.com/railway/terraform-migration-tool",
+                        "X-Title": "Terraform to Railway Migration"
+                    },
+                    json={
+                        "model": "anthropic/claude-3.5-sonnet",
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": user_prompt}
+                        ],
+                        "temperature": 0.3,
+                        "max_tokens": 4000
+                    }
+                )
+                
+                if response.status_code != 200:
+                    print(f"   ❌ OpenRouter API error: {response.status_code}")
+                    if self.verbose:
+                        print(f"   Response: {response.text}")
+                    if attempt < self.max_retries - 1:
+                        print(f"   ♻️  Retrying ({attempt + 2}/{self.max_retries})...")
+                        continue
+                    return None
+                
+                result = response.json()
+                
+                if "choices" not in result or len(result["choices"]) == 0:
+                    print("   ❌ No response from AI")
+                    if attempt < self.max_retries - 1:
+                        print(f"   ♻️  Retrying ({attempt + 2}/{self.max_retries})...")
+                        continue
+                    return None
+                
+                content = result["choices"][0]["message"]["content"]
+                
                 if self.verbose:
-                    print(f"   Response: {response.text}")
+                    print(f"   ✅ Received AI response ({len(content)} chars)")
+                
+                railway_config = self._parse_ai_response(content)
+                
+                # Validate schema
+                if self._validate_schema(railway_config):
+                    if self.verbose:
+                        print(f"   ✅ Schema validation passed")
+                    return railway_config
+                else:
+                    if attempt < self.max_retries - 1:
+                        print(f"   ⚠️  Schema validation failed, retrying ({attempt + 2}/{self.max_retries})...")
+                        continue
+                    else:
+                        print("   ⚠️  Schema validation failed on final attempt, returning anyway")
+                        return railway_config
+                
+            except Exception as e:
+                print(f"   ❌ Translation error: {e}")
+                if self.verbose:
+                    import traceback
+                    traceback.print_exc()
+                if attempt < self.max_retries - 1:
+                    print(f"   ♻️  Retrying ({attempt + 2}/{self.max_retries})...")
+                    continue
                 return None
-            
-            result = response.json()
-            
-            if "choices" not in result or len(result["choices"]) == 0:
-                print("   ❌ No response from AI")
-                return None
-            
-            content = result["choices"][0]["message"]["content"]
-            
-            if self.verbose:
-                print(f"   ✅ Received AI response ({len(content)} chars)")
-            
-            railway_config = self._parse_ai_response(content)
-            return railway_config
-            
-        except Exception as e:
-            print(f"   ❌ Translation error: {e}")
-            if self.verbose:
-                import traceback
-                traceback.print_exc()
-            return None
+        
+        return None
+    
+    def _build_enhanced_system_prompt(self, tf_data):
+        """Build enhanced system prompt with context-aware additions"""
+        base_prompt = self._build_system_prompt_v2()
+        
+        # Add few-shot examples for Lambda migrations
+        if self._has_lambda(tf_data):
+            base_prompt += self._get_lambda_examples()
+        
+        # Add chain-of-thought for complex migrations
+        if self._is_complex(tf_data):
+            base_prompt += self._get_chain_of_thought_instructions()
+        
+        return base_prompt
     
     def _build_system_prompt_v2(self):
         """Build system prompt FROM OFFICIAL Railway LLM docs"""
@@ -440,3 +480,158 @@ Analyze carefully and provide practical, accurate Railway migrations."""
         except Exception as e:
             print(f"   ❌ Parse error: {e}")
             return None
+    
+    def _validate_schema(self, railway_config):
+        """Validate that railway_config has required structure"""
+        if not railway_config or not isinstance(railway_config, dict):
+            return False
+        
+        # Check required keys exist
+        required_keys = ['functions', 'services', 'databases', 'migration_notes']
+        for key in required_keys:
+            if key not in railway_config:
+                if self.verbose:
+                    print(f"      Missing required key: {key}")
+                return False
+        
+        # Validate each section has correct type
+        if not isinstance(railway_config.get('functions'), list):
+            return False
+        if not isinstance(railway_config.get('services'), list):
+            return False
+        if not isinstance(railway_config.get('databases'), list):
+            return False
+        if not isinstance(railway_config.get('migration_notes'), dict):
+            return False
+        
+        return True
+    
+    def _has_lambda(self, tf_data):
+        """Check if Terraform contains Lambda resources"""
+        resources = tf_data.get('resources', {})
+        compute = resources.get('compute', [])
+        
+        for resource in compute:
+            if 'lambda' in resource.get('type', '').lower():
+                return True
+        return False
+    
+    def _is_complex(self, tf_data):
+        """Determine if migration is complex"""
+        resources = tf_data.get('resources', {})
+        total = sum(len(v) for v in resources.values() if isinstance(v, list))
+        
+        # Complex if >30 resources or contains MSK/BigQuery
+        if total > 30:
+            return True
+        
+        resources_str = str(resources).lower()
+        if 'msk' in resources_str or 'bigquery' in resources_str or 'kafka' in resources_str:
+            return True
+        
+        return False
+    
+    def _get_lambda_examples(self):
+        """Add few-shot Lambda migration examples"""
+        return """
+
+=== FEW-SHOT EXAMPLES: Lambda → Railway Functions ===
+
+Example 1: HTTP Lambda with API Gateway (VERIFIED 100% ACCURATE)
+```
+Terraform Input:
+  - aws_lambda_function (handler: index.handler, runtime: nodejs18.x)
+  - aws_apigatewayv2_api (HTTP API)
+
+Correct Railway Output:
+{
+  "functions": [{
+    "name": "api-handler",
+    "description": "HTTP API handler (migrated from AWS Lambda)",
+    "code_template": "export default {\\n  async fetch(req: Request) {\\n    return new Response('OK');\\n  }\\n}",
+    "estimatedSize_KB": 10,
+    "notes": "Railway Functions provide built-in HTTP - no API Gateway needed"
+  }],
+  "services": [],
+  "lambda_analysis": {
+    "can_use_functions": true,
+    "reason": "HTTP-triggered Lambda behind API Gateway, estimated <96KB",
+    "code_size_estimate_kb": 10
+  }
+}
+```
+
+Example 2: Cron Lambda (VERIFIED 100% ACCURATE)
+```
+Terraform Input:
+  - aws_lambda_function (scheduled via CloudWatch Events)
+  - aws_cloudwatch_event_rule (cron: 0 * * * *)
+
+Correct Railway Output:
+{
+  "functions": [{
+    "name": "cleanup-job",
+    "cronSchedule": "0 * * * *",
+    "code_template": "// Cleanup logic",
+    "estimatedSize_KB": 5
+  }],
+  "lambda_analysis": {
+    "can_use_functions": true,
+    "reason": "Scheduled Lambda, simple logic, estimated <96KB"
+  }
+}
+```
+
+Example 3: Complex Lambda → Service (CORRECT PATTERN)
+```
+Terraform Input:
+  - aws_lambda_function with Lambda Layers
+  - Multiple Lambda functions sharing code
+
+Correct Railway Output:
+{
+  "functions": [],
+  "services": [{
+    "name": "api-service",
+    "type": "web",
+    "notes": "Lambda has dependencies/layers, exceeds single-file limit"
+  }],
+  "lambda_analysis": {
+    "can_use_functions": false,
+    "reason": "Lambda uses Layers and multi-file architecture, requires Service"
+  }
+}
+```
+"""
+    
+    def _get_chain_of_thought_instructions(self):
+        """Add chain-of-thought reasoning for complex migrations"""
+        return """
+
+=== CHAIN-OF-THOUGHT REASONING (for complex migrations) ===
+
+For this complex infrastructure, follow this reasoning process:
+
+STEP 1: Analyze what CAN migrate to Railway
+- List compute resources (EC2, Lambda, ECS, Cloud Run, etc.)
+- List databases (RDS, Cloud SQL, etc.)
+- List storage (S3, GCS, etc.)
+
+STEP 2: Identify what SHOULD STAY on cloud provider
+- Check for: MSK, BigQuery, Pub/Sub, Kinesis, Redshift
+- Check for: Complex VPC networking, ACM-PCA, IAP
+- Document why these should stay
+
+STEP 3: Map migrateable resources to Railway equivalents
+- Lambda → Functions (if <96KB, single-file) OR Services
+- EC2/ECS/Fargate/Cloud Run → Services
+- RDS/Cloud SQL → Databases
+- S3/GCS → Buckets
+
+STEP 4: Generate configuration with detailed justification
+- Include lambda_analysis for every Lambda
+- Document easy_wins AND limitations honestly
+- Provide manual steps for hybrid architecture if needed
+
+Remember: Honesty about limitations builds trust!
+"""

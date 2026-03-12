@@ -1,0 +1,50 @@
+{
+  "functions": [
+    {
+      "name": "local-zipfile-handler",
+      "description": "Migrated from local_zipfile Lambda",
+      "code_template": "// TypeScript Bun code\nexport default {\n  async fetch(req: Request) {\n    // TODO: Implement Lambda logic here\n    return new Response('OK');\n  }\n}",
+      "cronSchedule": "0 * * * *",
+      "environmentVariables": {},
+      "estimatedSize_KB": 0,
+      "notes": "Original Lambda used local zip deployment"
+    },
+    {
+      "name": "s3-zipfile-handler",
+      "description": "Migrated from s3_zipfile Lambda",
+      "code_template": "// TypeScript Bun code\nexport default {\n  async fetch(req: Request) {\n    // TODO: Implement Lambda logic here\n    return new Response('OK');\n  }\n}",
+      "cronSchedule": "0 * * * *",
+      "environmentVariables": {},
+      "estimatedSize_KB": 0,
+      "notes": "Original Lambda used S3 zip deployment"
+    }
+  ],
+  "services": [],
+  "databases": [],
+  "volumes": [],
+  "buckets": [],
+  "migration_notes": {
+    "easy_wins": [
+      "CloudWatch Event Rules map directly to Railway cronSchedule",
+      "No IAM configuration needed - Railway handles auth",
+      "Functions provide serverless equivalent to Lambda",
+      "Simpler deployment without zip files"
+    ],
+    "limitations": [
+      "Cannot determine exact Function code without Lambda source",
+      "Some CloudWatch features may need alternative monitoring solution"
+    ],
+    "manual_steps": [
+      "Convert Lambda function code to TypeScript for Railway Functions",
+      "Set up monitoring to replace CloudWatch",
+      "Configure environment variables if needed",
+      "Test cron schedules match CloudWatch rules"
+    ],
+    "lambda_analysis": {
+      "can_use_functions": true,
+      "reason": "Based on the Terraform, these appear to be simple Lambda functions triggered by CloudWatch Events (cron), perfect for Railway Functions",
+      "code_size_estimate_kb": 0
+    }
+  },
+  "cli_commands": []
+}

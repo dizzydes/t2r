@@ -20,6 +20,9 @@ from terraform_parser import TerraformParser
 from ai_translator import AITranslator
 from railway_generator import RailwayGenerator
 from comparison_report import ComparisonReport
+from ai_validator import AIValidator
+from confidence_scorer import ConfidenceScorer
+from doc_validator import DocValidator
 
 
 def main():
@@ -75,6 +78,17 @@ def main():
     print(f"✅ Found {len(tf_data.get('files', []))} Terraform files")
     print(f"   Resources: {len(tf_data.get('resources', []))}")
     
+    # Step 1.5: Validate Railway documentation freshness
+    print("\n📚 Step 1.5: Validating Railway documentation...")
+    doc_validator = DocValidator(verbose=args.verbose)
+    doc_status = doc_validator.check_freshness()
+    doc_validator.print_status(doc_status)
+    
+    if doc_status['status'] == 'MISSING':
+        print("   ❌ Cannot proceed without Railway documentation")
+        print(f"   Run: curl -s {doc_validator.docs_url} > {doc_validator.docs_file}")
+        sys.exit(1)
+    
     # Step 2: AI Translation (before cost analysis, since we need railway_config)
     print("\n🤖 Step 2: Translating to Railway using AI...")
     translator = AITranslator(verbose=args.verbose)
@@ -87,6 +101,21 @@ def main():
         sys.exit(1)
     
     print("✅ Translation complete")
+    
+    # Step 2.5: Validate AI translation
+    print("\n🔍 Step 2.5: Validating AI translation...")
+    validator = AIValidator(verbose=args.verbose)
+    validation_results = validator.validate_translation(railway_config, tf_data)
+    validator.print_results(validation_results)
+    
+    if not validation_results['valid']:
+        print("   ⚠️  Critical issues found but continuing with migration...")
+    
+    # Step 2.6: Calculate confidence score
+    print("\n📊 Step 2.6: Calculating migration confidence score...")
+    scorer = ConfidenceScorer(verbose=args.verbose)
+    confidence = scorer.calculate_confidence(tf_data, railway_config)
+    scorer.print_score(confidence)
     
     # Step 3: Run Enhanced Infracost analysis with 3-band comparison
     print("\n💰 Step 3: Running 3-Band Cost Analysis (50%/100%/200% usage)...")

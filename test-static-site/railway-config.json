@@ -1,0 +1,36 @@
+{
+  "functions": [],
+  "services": [],
+  "databases": [],
+  "volumes": [],
+  "buckets": [
+    {
+      "name": "site-content",
+      "region": "sjc",
+      "notes": "Migrating AWS S3 bucket for site content. Using sjc (US West) as default region."
+    }
+  ],
+  "migration_notes": {
+    "easy_wins": [
+      "Railway Buckets provide S3-compatible storage with simpler configuration",
+      "No need for complex bucket policies - Railway handles authentication"
+    ],
+    "limitations": [
+      "Railway Buckets don't support bucket policies - access control is simplified",
+      "Railway doesn't have Route53 equivalent - DNS must be managed elsewhere",
+      "Limited bucket regions compared to AWS (only sjc, iad, ams, sin available)"
+    ],
+    "manual_steps": [
+      "Create bucket using: railway bucket create site-content --region sjc",
+      "Get credentials: railway bucket credentials --bucket site-content --json",
+      "Update DNS settings in your domain provider instead of Route53",
+      "Generate a new random string for password if needed (Railway has built-in secret management)"
+    ],
+    "lambda_analysis": {
+      "can_use_functions": false,
+      "reason": "No Lambda functions to migrate in this configuration",
+      "code_size_estimate_kb": 0
+    }
+  },
+  "cli_commands": []
+}
